@@ -159,8 +159,9 @@ const DEFAULT_STATE = {
 let state = loadState();
 let activeTab = 'today';
 let draft = null;
-let cloud = { client: null, session: null, enabled: false, status: 'Local only', lastSyncedAt: null, saving: false };
+let cloud = { client: null, session: null, enabled: false, status: 'Local only', lastSyncedAt: null, saving: false, error: null, pending: false };
 let saveTimer = null;
+let lastAutoSyncAttemptAt = null;
 
 function todayISO(date = new Date()) {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -211,28 +212,45 @@ async function initCloud() {
   updateCloudStatus();
   if (cloud.session) await pullFromCloud(false);
 }
-function updateCloudStatus(text) {
+function updateCloudStatus(text, clsOverride) {
   const el = document.getElementById('cloudStatusText');
   if (!el) return;
   let label = text || 'Local cache only';
-  let cls = 'warn';
-  if (cloud.session) { label = cloud.saving ? 'Syncing to Supabase...' : `Cloud sync on${cloud.lastSyncedAt ? ' · ' + new Date(cloud.lastSyncedAt).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : ''}`; cls='on'; }
-  else if (cloud.enabled) { label = 'Supabase configured · sign in to sync'; cls='warn'; }
+  let cls = clsOverride || 'warn';
+  if (!text && cloud.session) {
+    if (cloud.saving) { label = 'Auto-syncing to Supabase...'; cls = 'warn'; }
+    else if (cloud.pending) { label = 'Cloud sync queued...'; cls = 'warn'; }
+    else if (cloud.error) { label = 'Cloud sync needs attention'; cls = 'bad'; }
+    else { label = `Cloud auto-sync on${cloud.lastSyncedAt ? ' · ' + new Date(cloud.lastSyncedAt).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : ''}`; cls='on'; }
+  }
+  else if (!text && cloud.enabled) { label = 'Supabase configured · sign in to auto-sync'; cls='warn'; }
   el.innerHTML = `<span class="cloud-dot ${cls}"></span>${label}`;
 }
 function queueCloudSave() {
   if (!cloud.client || !cloud.session) return;
+  cloud.pending = true;
+  cloud.error = null;
+  updateCloudStatus();
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => pushToCloud().catch(err => alert('Cloud sync failed: ' + err.message)), 700);
+  saveTimer = setTimeout(() => pushToCloud({ automatic: true }).catch(err => {
+    cloud.saving = false; cloud.pending = false; cloud.error = err.message || 'Auto-sync failed';
+    console.error('Cloud auto-sync failed', err);
+    updateCloudStatus();
+    renderSettings();
+  }), 650);
 }
-async function pushToCloud() {
-  if (!cloud.client || !cloud.session) return;
-  cloud.saving = true; updateCloudStatus();
+async function pushToCloud(options = {}) {
+  if (!cloud.client || !cloud.session) {
+    if (!options.automatic) alert('Sign in before pushing to Supabase.');
+    return false;
+  }
+  cloud.saving = true; cloud.pending = false; cloud.error = null; lastAutoSyncAttemptAt = new Date().toISOString(); updateCloudStatus();
   const payload = { user_id: cloud.session.user.id, data: state, updated_at: new Date().toISOString() };
   const { error } = await cloud.client.from(CLOUD_TABLE).upsert(payload, { onConflict: 'user_id' });
   cloud.saving = false;
-  if (error) { updateCloudStatus('Cloud sync error'); throw error; }
-  cloud.lastSyncedAt = payload.updated_at; updateCloudStatus();
+  if (error) { cloud.error = error.message; updateCloudStatus(); throw error; }
+  cloud.lastSyncedAt = payload.updated_at; cloud.error = null; updateCloudStatus(); renderSettings();
+  return true;
 }
 async function pullFromCloud(askBeforeOverwrite = true) {
   if (!cloud.client || !cloud.session) return;
@@ -246,13 +264,36 @@ async function pullFromCloud(askBeforeOverwrite = true) {
   if (shouldUseCloud) { state = cloudState; localStorage.setItem(STORE_KEY, JSON.stringify(state)); draft = null; cloud.lastSyncedAt = data.updated_at; render(); }
   updateCloudStatus();
 }
-async function sendMagicLink() {
+async function sendOtpCode() {
   if (!cloud.client) return alert('Save your Supabase URL and anon key first.');
   const email = document.getElementById('cloudEmail').value.trim();
   if (!email) return alert('Enter your email address.');
-  const { error } = await cloud.client.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0] } });
+  localStorage.setItem('private-5x5-pending-email-v1', email);
+  const { error } = await cloud.client.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true }
+  });
   if (error) return alert(error.message);
-  alert('Check your email for the Supabase sign-in link. Open it on this iPhone.');
+  alert('Check your email for the 6-digit sign-in code, then come back to this app and enter it here. Do not tap the email link.');
+}
+async function verifyOtpCode() {
+  if (!cloud.client) return alert('Save your Supabase URL and anon key first.');
+  const email = document.getElementById('cloudEmail').value.trim() || localStorage.getItem('private-5x5-pending-email-v1') || '';
+  const token = document.getElementById('cloudOtp').value.trim().replace(/\s+/g, '');
+  if (!email) return alert('Enter your email address.');
+  if (!token) return alert('Enter the 6-digit code from your email.');
+  const { data, error } = await cloud.client.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) return alert(error.message);
+  cloud.session = data.session || null;
+  localStorage.removeItem('private-5x5-pending-email-v1');
+  updateCloudStatus();
+  if (cloud.session) {
+    await pullFromCloud(true);
+    render();
+    alert('Signed in. Cloud sync is now available.');
+  } else {
+    alert('The code was accepted, but no session was returned. Try sending a new code.');
+  }
 }
 async function signOutCloud() { if (cloud.client) await cloud.client.auth.signOut(); cloud.session=null; updateCloudStatus(); render(); }
 async function saveCloudSettings() {
@@ -262,7 +303,7 @@ async function saveCloudSettings() {
   saveCloudConfig({ url, anonKey });
   await initCloud(); render();
 }
-async function manualPush() { await pushToCloud(); alert('Pushed this device data to Supabase.'); }
+async function manualPush() { await pushToCloud({ automatic: false }); alert('Pushed this device data to Supabase.'); }
 async function manualPull() { await pullFromCloud(true); alert('Pulled latest Supabase data onto this device.'); }
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 function nextScheduledDate(from = new Date()) {
@@ -473,20 +514,23 @@ function renderSettings() {
 function cloudSettingsHTML() {
   const cfg = cloudConfig();
   const email = cloud.session?.user?.email || '';
-  return `<div class="card"><h2>Cloud Sync: Supabase</h2><p class="sub" style="margin-top:5px">Stores one encrypted-in-transit JSON copy of your workout data in your own free Supabase project. This phone keeps a local cache for offline use.</p>
+  return `<div class="card"><h2>Cloud Sync: Supabase</h2><p class="sub" style="margin-top:5px">Stores one encrypted-in-transit JSON copy of your workout data in your own free Supabase project. This phone keeps a local cache for offline use. Once signed in, every saved data change auto-syncs to Supabase. Manual Push/Pull buttons remain available.</p>
     <div class="grid" style="margin-top:14px">
       <div><label>Supabase project URL</label><input id="supabaseUrl" value="${escapeAttr(cfg.url || '')}" placeholder="https://your-project.supabase.co"></div>
       <div><label>Supabase anon public key</label><input id="supabaseAnonKey" value="${escapeAttr(cfg.anonKey || '')}" placeholder="eyJhbGciOi..." autocomplete="off"></div>
       <div class="actions"><button class="btn primary" onclick="saveCloudSettings()">Save Cloud Settings</button></div>
-      <div class="grid2"><div><label>Email sign-in</label><input id="cloudEmail" type="email" value="${escapeAttr(email)}" placeholder="you@example.com"></div><div><label>Status</label><div class="pill">${cloud.session ? 'Signed in as ' + escapeAttr(email) : (cloud.enabled ? 'Configured, not signed in' : 'Not configured')}</div></div></div>
+      <div class="grid2"><div><label>Email sign-in</label><input id="cloudEmail" type="email" value="${escapeAttr(email)}" placeholder="you@example.com"></div><div><label>Status</label><div class="pill">${cloud.session ? 'Auto-sync ON · ' + escapeAttr(email) : (cloud.enabled ? 'Configured, not signed in' : 'Not configured')}</div></div></div>
+      <div class="grid2"><div><label>Email code</label><input id="cloudOtp" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code"></div><div><label>Home Screen app login</label><div class="pill">Use the code here; do not tap the email link</div></div></div>
       <div class="actions">
-        <button class="btn good" onclick="sendMagicLink()">Email Magic Link</button>
+        <button class="btn good" onclick="sendOtpCode()">Send Sign-In Code</button>
+        <button class="btn primary" onclick="verifyOtpCode()">Verify Code</button>
         <button class="btn" onclick="manualPull()" ${cloud.session ? '' : 'disabled'}>Pull from Cloud</button>
         <button class="btn" onclick="manualPush()" ${cloud.session ? '' : 'disabled'}>Push to Cloud</button>
         <button class="btn bad" onclick="signOutCloud()" ${cloud.session ? '' : 'disabled'}>Sign Out</button>
       </div>
     </div>
-    <p class="footer-note">Important: the anon key is safe to place in a browser app only when Row Level Security is enabled and the SQL policies in the README are installed.</p>
+    ${cloud.error ? `<p class="footer-note fail">Last auto-sync failed: ${escapeAttr(cloud.error)}</p>` : ''}
+    <p class="footer-note">Auto-sync runs after saved setup changes, imports, completed workouts, deleted logs, and resets while you are signed in. The manual buttons are still there for recovery or cross-device refresh. Important: the anon key is safe to place in a browser app only when Row Level Security is enabled and the SQL policies in the README are installed.</p>
   </div>`;
 }
 
@@ -503,7 +547,7 @@ function importData(evt) {
   reader.onload = () => { try { const parsed = JSON.parse(reader.result); state = mergeDefaults(parsed.state || parsed); saveState(); draft = null; alert('Backup imported.'); render(); } catch { alert('That backup file could not be imported.'); } };
   reader.readAsText(file);
 }
-function resetAll() { if (confirm('Delete all local 5x5 data?')) { localStorage.removeItem(STORE_KEY); state = loadState(); draft = null; render(); } }
+function resetAll() { if (confirm('Delete all local 5x5 data? This will also auto-sync the reset to Supabase if you are signed in.')) { localStorage.removeItem(STORE_KEY); state = loadState(); draft = null; saveState(); render(); } }
 
 document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => { activeTab = btn.dataset.tab; render(); window.scrollTo(0,0); }));
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
