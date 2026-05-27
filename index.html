@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="5x5 Tracker" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>Cloud 5x5 Tracker</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #151c2f;
+      --card2: #111827;
+      --text: #f8fafc;
+      --muted: #a8b3cf;
+      --line: rgba(255,255,255,.11);
+      --accent: #f97316;
+      --accent2: #fb923c;
+      --good: #22c55e;
+      --bad: #ef4444;
+      --warn: #facc15;
+      --shadow: 0 16px 45px rgba(0,0,0,.28);
+      --radius: 20px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { padding: env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom)); background: radial-gradient(circle at top left, rgba(249,115,22,.22), transparent 34%), var(--bg); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; border: 0; }
+    .app { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 18px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo { width: 42px; height: 42px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), #991b1b); display: grid; place-items: center; box-shadow: var(--shadow); font-weight: 900; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 22px; line-height: 1.1; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .pill { border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 7px 10px; font-size: 12px; background: rgba(255,255,255,.04); }
+    .card { background: rgba(21,28,47,.92); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 14px; backdrop-filter: blur(10px); }
+    .hero { padding: 18px; background: linear-gradient(145deg, rgba(249,115,22,.2), rgba(21,28,47,.95) 42%, rgba(17,24,39,.96)); }
+    .hero-row { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+    .workout-badge { min-width: 72px; min-height: 72px; border-radius: 24px; display: grid; place-items: center; background: rgba(255,255,255,.08); border: 1px solid var(--line); font-size: 34px; font-weight: 900; }
+    .grid { display: grid; gap: 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+    label { display: block; color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+    input, select, textarea { width: 100%; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 14px; padding: 12px; outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: rgba(249,115,22,.7); box-shadow: 0 0 0 3px rgba(249,115,22,.15); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 15px; padding: 12px 14px; background: rgba(255,255,255,.08); color: var(--text); border: 1px solid var(--line); font-weight: 700; }
+    .btn.primary { background: linear-gradient(135deg, var(--accent), #dc2626); border-color: transparent; }
+    .btn.good { background: rgba(34,197,94,.18); color: #bbf7d0; border-color: rgba(34,197,94,.35); }
+    .btn.bad { background: rgba(239,68,68,.14); color: #fecaca; border-color: rgba(239,68,68,.35); }
+    .btn.small { min-height: 34px; border-radius: 12px; padding: 8px 10px; font-size: 13px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .lift { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+    .lift-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .lift-title { font-size: 17px; font-weight: 850; }
+    .target { font-size: 22px; font-weight: 900; }
+    .sets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .setbtn { height: 48px; border-radius: 14px; background: rgba(255,255,255,.07); color: var(--muted); border: 1px solid var(--line); font-weight: 900; }
+    .setbtn.on { background: rgba(34,197,94,.22); color: #dcfce7; border-color: rgba(34,197,94,.55); }
+    .deadlift-sets { grid-template-columns: 1fr; }
+    .tabs { position: fixed; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); background: rgba(8,13,26,.92); border-top: 1px solid var(--line); backdrop-filter: blur(14px); z-index: 20; }
+    .tab { color: var(--muted); background: transparent; border-radius: 14px; padding: 9px 6px; font-size: 12px; display: grid; gap: 2px; }
+    .tab.active { color: var(--text); background: rgba(255,255,255,.08); }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    .kpi { background: rgba(255,255,255,.055); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+    .kpi strong { display: block; font-size: 20px; }
+    .kpi span { color: var(--muted); font-size: 12px; }
+    .history-item { display: grid; gap: 8px; border-bottom: 1px solid var(--line); padding: 12px 0; }
+    .history-item:last-child { border-bottom: 0; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .muted { color: var(--muted); }
+    .success { color: #86efac; }
+    .fail { color: #fca5a5; }
+    .warn { color: #fde68a; }
+    .chart { height: 210px; width: 100%; margin-top: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 16px; padding: 10px; }
+    .empty { color: var(--muted); padding: 18px 4px; text-align: center; }
+    .hide { display: none !important; }
+    .footer-note { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 10px; }
+    .danger-zone { border-color: rgba(239,68,68,.35); }
+    .install { background: rgba(250,204,21,.12); border-color: rgba(250,204,21,.28); }
+    textarea { min-height: 88px; resize: vertical; }
+    .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .table th, .table td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); }
+    .table th { color: var(--muted); font-weight: 700; }
+  
+    .cloud-dot { display:inline-block; width:9px; height:9px; border-radius:999px; margin-right:6px; background:#64748b; }
+    .cloud-dot.on { background: var(--good); }
+    .cloud-dot.warn { background: var(--warn); }
+    .cloud-dot.bad { background: var(--bad); }
+    .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 14px; padding: 12px; overflow:auto; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">5×5</div>
+        <div>
+          <h1>Cloud 5x5 Tracker</h1>
+          <p class="sub" id="cloudStatusText">StrongLifts-style progress log</p>
+        </div>
+      </div>
+      <div class="pill" id="todayPill"></div>
+    </header>
+
+    <section id="installCard" class="card install hide">
+      <h2>Install on iPhone</h2>
+      <p class="sub" style="margin-top:6px">Open this page in Safari, tap Share, then Add to Home Screen.</p>
+    </section>
+
+    <section id="view-today"></section>
+    <section id="view-setup" class="hide"></section>
+    <section id="view-history" class="hide"></section>
+    <section id="view-settings" class="hide"></section>
+  </main>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="today">🏋️<span>Today</span></button>
+    <button class="tab" data-tab="setup">⚙️<span>Setup</span></button>
+    <button class="tab" data-tab="history">📈<span>History</span></button>
+    <button class="tab" data-tab="settings">💾<span>Data</span></button>
+  </nav>
+
+<script>
+const STORE_KEY = 'private-5x5-tracker-v1';
+const CLOUD_CONFIG_KEY = 'private-5x5-supabase-config-v1';
+const CLOUD_TABLE = 'stronglifts_data';
+const LIFTS = {
+  squat: { name: 'Squat', short: 'SQ', default: 45, increment: 5, sets: 5 },
+  bench: { name: 'Bench Press', short: 'BP', default: 45, increment: 5, sets: 5 },
+  row: { name: 'Barbell Row', short: 'ROW', default: 65, increment: 5, sets: 5 },
+  press: { name: 'Overhead Press', short: 'OHP', default: 45, increment: 5, sets: 5 },
+  deadlift: { name: 'Deadlift', short: 'DL', default: 95, increment: 10, sets: 1 }
+};
+const WORKOUTS = {
+  A: ['squat', 'bench', 'row'],
+  B: ['squat', 'press', 'deadlift']
+};
+const DEFAULT_STATE = {
+  settings: {
+    units: 'lb',
+    scheduleDays: [1,3,5],
+    firstWorkoutDate: todayISO(),
+    firstWorkoutType: 'A',
+    deloadPercent: 10,
+    deloadAfterFails: 3,
+    roundTo: 5
+  },
+  lifts: Object.fromEntries(Object.entries(LIFTS).map(([k,v]) => [k, { current: v.default, increment: v.increment, failures: 0 }])),
+  workouts: []
+};
+let state = loadState();
+let activeTab = 'today';
+let draft = null;
+let cloud = { client: null, session: null, enabled: false, status: 'Local only', lastSyncedAt: null, saving: false };
+let saveTimer = null;
+
+function todayISO(date = new Date()) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return d.toISOString().slice(0,10);
+}
+function formatDate(iso) {
+  const [y,m,d] = iso.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+}
+function parseISO(iso) {
+  const [y,m,d] = iso.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return structuredClone(DEFAULT_STATE);
+    return mergeDefaults(JSON.parse(raw));
+  } catch { return structuredClone(DEFAULT_STATE); }
+}
+function mergeDefaults(saved) {
+  const base = structuredClone(DEFAULT_STATE);
+  return {
+    ...base,
+    ...saved,
+    settings: { ...base.settings, ...(saved.settings || {}) },
+    lifts: { ...base.lifts, ...(saved.lifts || {}) },
+    workouts: Array.isArray(saved.workouts) ? saved.workouts : []
+  };
+}
+function saveState() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  queueCloudSave();
+}
+function cloudConfig() {
+  try { return JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY) || '{}'); } catch { return {}; }
+}
+function saveCloudConfig(cfg) { localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(cfg)); }
+function hasCloudConfig() { const c = cloudConfig(); return !!(c.url && c.anonKey); }
+async function initCloud() {
+  if (!window.supabase || !hasCloudConfig()) { updateCloudStatus('Local only'); return; }
+  const cfg = cloudConfig();
+  cloud.client = window.supabase.createClient(cfg.url, cfg.anonKey);
+  cloud.enabled = true;
+  const { data } = await cloud.client.auth.getSession();
+  cloud.session = data.session || null;
+  cloud.client.auth.onAuthStateChange((_event, session) => { cloud.session = session; updateCloudStatus(); if (session) pullFromCloud(true); });
+  updateCloudStatus();
+  if (cloud.session) await pullFromCloud(false);
+}
+function updateCloudStatus(text) {
+  const el = document.getElementById('cloudStatusText');
+  if (!el) return;
+  let label = text || 'Local cache only';
+  let cls = 'warn';
+  if (cloud.session) { label = cloud.saving ? 'Syncing to Supabase...' : `Cloud sync on${cloud.lastSyncedAt ? ' · ' + new Date(cloud.lastSyncedAt).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : ''}`; cls='on'; }
+  else if (cloud.enabled) { label = 'Supabase configured · sign in to sync'; cls='warn'; }
+  el.innerHTML = `<span class="cloud-dot ${cls}"></span>${label}`;
+}
+function queueCloudSave() {
+  if (!cloud.client || !cloud.session) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => pushToCloud().catch(err => alert('Cloud sync failed: ' + err.message)), 700);
+}
+async function pushToCloud() {
+  if (!cloud.client || !cloud.session) return;
+  cloud.saving = true; updateCloudStatus();
+  const payload = { user_id: cloud.session.user.id, data: state, updated_at: new Date().toISOString() };
+  const { error } = await cloud.client.from(CLOUD_TABLE).upsert(payload, { onConflict: 'user_id' });
+  cloud.saving = false;
+  if (error) { updateCloudStatus('Cloud sync error'); throw error; }
+  cloud.lastSyncedAt = payload.updated_at; updateCloudStatus();
+}
+async function pullFromCloud(askBeforeOverwrite = true) {
+  if (!cloud.client || !cloud.session) return;
+  const { data, error } = await cloud.client.from(CLOUD_TABLE).select('data, updated_at').eq('user_id', cloud.session.user.id).maybeSingle();
+  if (error) throw error;
+  if (!data || !data.data) { await pushToCloud(); return; }
+  const cloudState = mergeDefaults(data.data);
+  const localCount = state.workouts?.length || 0;
+  const cloudCount = cloudState.workouts?.length || 0;
+  const shouldUseCloud = !askBeforeOverwrite || cloudCount >= localCount || confirm(`Cloud has ${cloudCount} workouts. This device has ${localCount}. Load cloud data onto this device?`);
+  if (shouldUseCloud) { state = cloudState; localStorage.setItem(STORE_KEY, JSON.stringify(state)); draft = null; cloud.lastSyncedAt = data.updated_at; render(); }
+  updateCloudStatus();
+}
+async function sendMagicLink() {
+  if (!cloud.client) return alert('Save your Supabase URL and anon key first.');
+  const email = document.getElementById('cloudEmail').value.trim();
+  if (!email) return alert('Enter your email address.');
+  const { error } = await cloud.client.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0] } });
+  if (error) return alert(error.message);
+  alert('Check your email for the Supabase sign-in link. Open it on this iPhone.');
+}
+async function signOutCloud() { if (cloud.client) await cloud.client.auth.signOut(); cloud.session=null; updateCloudStatus(); render(); }
+async function saveCloudSettings() {
+  const url = document.getElementById('supabaseUrl').value.trim();
+  const anonKey = document.getElementById('supabaseAnonKey').value.trim();
+  if (!url || !anonKey) return alert('Enter both Supabase URL and anon key.');
+  saveCloudConfig({ url, anonKey });
+  await initCloud(); render();
+}
+async function manualPush() { await pushToCloud(); alert('Pushed this device data to Supabase.'); }
+async function manualPull() { await pullFromCloud(true); alert('Pulled latest Supabase data onto this device.'); }
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function nextScheduledDate(from = new Date()) {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (let i=0;i<14;i++) {
+    if (state.settings.scheduleDays.includes(d.getDay())) return todayISO(d);
+    d.setDate(d.getDate()+1);
+  }
+  return todayISO(from);
+}
+function workoutIndexForDate(iso) {
+  const first = parseISO(state.settings.firstWorkoutDate);
+  const target = parseISO(iso);
+  const scheduled = [];
+  const cursor = new Date(first);
+  const stepLimit = 3660;
+  for (let i=0;i<stepLimit && cursor <= target;i++) {
+    if (state.settings.scheduleDays.includes(cursor.getDay())) scheduled.push(todayISO(cursor));
+    cursor.setDate(cursor.getDate()+1);
+  }
+  const idx = scheduled.indexOf(iso);
+  return idx >= 0 ? idx : Math.max(0, scheduled.length - 1);
+}
+function plannedWorkoutType(iso) {
+  const idx = workoutIndexForDate(iso);
+  const first = state.settings.firstWorkoutType;
+  return idx % 2 === 0 ? first : (first === 'A' ? 'B' : 'A');
+}
+function mostRecentWorkout() { return [...state.workouts].sort((a,b) => b.completedAt.localeCompare(a.completedAt))[0]; }
+function completedToday() { const iso = todayISO(); return state.workouts.find(w => w.date === iso); }
+function ensureDraft() {
+  const iso = nextScheduledDate(new Date());
+  const type = plannedWorkoutType(iso);
+  draft = {
+    id: uid(), date: iso, type, completedAt: null,
+    entries: WORKOUTS[type].map(key => ({ key, name: LIFTS[key].name, target: state.lifts[key].current, sets: Array(LIFTS[key].sets).fill(false), actual: state.lifts[key].current, notes: '' }))
+  };
+}
+function render() {
+  document.getElementById('todayPill').textContent = formatDate(todayISO());
+  for (const id of ['today','setup','history','settings']) document.getElementById('view-'+id).classList.toggle('hide', activeTab !== id);
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
+  renderToday(); renderSetup(); renderHistory(); renderSettings(); renderInstallHint();
+}
+function renderInstallHint() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  document.getElementById('installCard').classList.toggle('hide', !isiOS || isStandalone);
+}
+function renderToday() {
+  const root = document.getElementById('view-today');
+  const done = completedToday();
+  if (!draft) ensureDraft();
+  const w = done || draft;
+  const recent = mostRecentWorkout();
+  root.innerHTML = `
+    <div class="card hero">
+      <div class="hero-row">
+        <div>
+          <p class="sub">${done ? 'Completed today' : 'Next scheduled workout'}</p>
+          <h2 style="font-size:30px;margin-top:4px">Workout ${w.type}</h2>
+          <p class="sub" style="margin-top:5px">${formatDate(w.date)} · ${WORKOUTS[w.type].map(k => LIFTS[k].name).join(' / ')}</p>
+        </div>
+        <div class="workout-badge">${w.type}</div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><strong>${state.workouts.length}</strong><span>Workouts</span></div>
+        <div class="kpi"><strong>${recent ? formatDate(recent.date).split(',')[0] : '—'}</strong><span>Last logged</span></div>
+        <div class="kpi"><strong>${state.settings.units}</strong><span>Units</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <h2>${done ? 'Today’s log' : 'Log workout'}</h2>
+          <p class="sub">Tap each set you complete. Adjust actual weight if needed.</p>
+        </div>
+        ${!done ? `<button class="btn small" onclick="resetDraft()">Reset</button>` : ''}
+      </div>
+      <div id="liftsBox"></div>
+      ${!done ? `<div class="actions"><button class="btn primary" onclick="completeWorkout()">Complete Workout</button></div>` : `<div class="actions"><button class="btn bad" onclick="deleteWorkout('${done.id}')">Delete Today’s Log</button></div>`}
+      <p class="footer-note">Success means all required sets were checked. Successful lifts increase by their configured increment for next time. Failed lifts repeat until the deload rule triggers.</p>
+    </div>`;
+  const box = root.querySelector('#liftsBox');
+  box.innerHTML = w.entries.map((e, idx) => liftHTML(e, idx, !!done)).join('');
+}
+function liftHTML(e, idx, locked) {
+  return `<div class="lift">
+    <div class="lift-head">
+      <div><div class="lift-title">${e.name}</div><div class="sub">Target</div></div>
+      <div class="target">${e.target} ${state.settings.units}</div>
+    </div>
+    <div class="sets ${e.sets.length === 1 ? 'deadlift-sets' : ''}">
+      ${e.sets.map((on, sidx) => `<button class="setbtn ${on ? 'on' : ''}" ${locked ? 'disabled' : ''} onclick="toggleSet(${idx},${sidx})">${sidx+1}</button>`).join('')}
+    </div>
+    <div class="grid2">
+      <div><label>Actual weight</label><input type="number" inputmode="decimal" value="${e.actual}" ${locked ? 'disabled' : ''} onchange="updateActual(${idx}, this.value)"></div>
+      <div><label>Notes</label><input value="${escapeAttr(e.notes || '')}" ${locked ? 'disabled' : ''} onchange="updateNotes(${idx}, this.value)" placeholder="optional"></div>
+    </div>
+  </div>`;
+}
+function escapeAttr(str) { return String(str).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'); }
+function toggleSet(i,j) { draft.entries[i].sets[j] = !draft.entries[i].sets[j]; renderToday(); }
+function updateActual(i,val) { draft.entries[i].actual = Number(val) || draft.entries[i].target; }
+function updateNotes(i,val) { draft.entries[i].notes = val; }
+function resetDraft() { ensureDraft(); render(); }
+function roundToNearest(n, step) { return Math.round(n / step) * step; }
+function completeWorkout() {
+  const log = structuredClone(draft);
+  log.completedAt = new Date().toISOString();
+  log.entries.forEach(e => {
+    const success = e.sets.every(Boolean);
+    e.success = success;
+    const lift = state.lifts[e.key];
+    lift.current = Number(e.actual) || lift.current;
+    if (success) {
+      lift.current = lift.current + Number(lift.increment || LIFTS[e.key].increment);
+      lift.failures = 0;
+    } else {
+      lift.failures = Number(lift.failures || 0) + 1;
+      if (lift.failures >= Number(state.settings.deloadAfterFails || 3)) {
+        const reduced = lift.current * (1 - Number(state.settings.deloadPercent || 10)/100);
+        lift.current = roundToNearest(reduced, Number(state.settings.roundTo || 5));
+        lift.failures = 0;
+        e.deloaded = true;
+      }
+    }
+  });
+  state.workouts.push(log);
+  saveState(); draft = null; render();
+}
+function deleteWorkout(id) {
+  if (!confirm('Delete this workout log? This will not reverse current target weights automatically.')) return;
+  state.workouts = state.workouts.filter(w => w.id !== id);
+  saveState(); draft = null; render();
+}
+function renderSetup() {
+  const root = document.getElementById('view-setup');
+  root.innerHTML = `<div class="card"><h2>Starting / Current Weights</h2><p class="sub" style="margin-top:5px">Set these to your current working weights. Changes affect future workouts.</p><div class="grid" style="margin-top:14px">
+    ${Object.entries(LIFTS).map(([k,v]) => `<div class="grid2"><div><label>${v.name} current weight</label><input type="number" inputmode="decimal" value="${state.lifts[k].current}" onchange="setLift('${k}','current',this.value)"></div><div><label>${v.name} increment</label><input type="number" inputmode="decimal" value="${state.lifts[k].increment}" onchange="setLift('${k}','increment',this.value)"></div></div>`).join('')}
+  </div><div class="actions"><button class="btn primary" onclick="saveState(); draft=null; render()">Save Weights</button></div></div>
+  <div class="card"><h2>Routine Schedule</h2><div class="grid" style="margin-top:14px">
+    <div class="grid2"><div><label>First workout date</label><input type="date" value="${state.settings.firstWorkoutDate}" onchange="setSetting('firstWorkoutDate', this.value)"></div><div><label>First workout type</label><select onchange="setSetting('firstWorkoutType', this.value)"><option ${state.settings.firstWorkoutType==='A'?'selected':''}>A</option><option ${state.settings.firstWorkoutType==='B'?'selected':''}>B</option></select></div></div>
+    <div><label>Workout days</label><div class="actions">${dayButtons()}</div></div>
+  </div><p class="footer-note">Default is Monday / Wednesday / Friday. The app alternates Workout A and B based on scheduled workout days, not calendar days.</p></div>`;
+}
+function dayButtons() {
+  const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return names.map((n,i) => `<button class="btn small ${state.settings.scheduleDays.includes(i) ? 'good' : ''}" onclick="toggleDay(${i})">${n}</button>`).join('');
+}
+function setLift(k, field, val) { state.lifts[k][field] = Number(val) || 0; saveState(); }
+function setSetting(k, val) { state.settings[k] = val; saveState(); draft = null; render(); }
+function toggleDay(i) {
+  const days = new Set(state.settings.scheduleDays);
+  days.has(i) ? days.delete(i) : days.add(i);
+  if (days.size === 0) return alert('Select at least one workout day.');
+  state.settings.scheduleDays = [...days].sort((a,b)=>a-b);
+  saveState(); draft = null; render();
+}
+function renderHistory() {
+  const root = document.getElementById('view-history');
+  const logs = [...state.workouts].sort((a,b) => b.completedAt.localeCompare(a.completedAt));
+  root.innerHTML = `<div class="card"><h2>Progress</h2><p class="sub" style="margin-top:5px">Current next-session working weights.</p>${progressTable()}${chartHTML()}</div>
+  <div class="card"><h2>Workout History</h2>${logs.length ? logs.map(historyItem).join('') : '<div class="empty">No workouts logged yet.</div>'}</div>`;
+  drawChart();
+}
+function progressTable() {
+  return `<table class="table" style="margin-top:12px"><thead><tr><th>Lift</th><th>Next</th><th>Fails</th></tr></thead><tbody>${Object.entries(LIFTS).map(([k,v]) => `<tr><td>${v.name}</td><td><strong>${state.lifts[k].current} ${state.settings.units}</strong></td><td>${state.lifts[k].failures || 0}</td></tr>`).join('')}</tbody></table>`;
+}
+function historyItem(w) {
+  return `<div class="history-item"><div class="row"><strong>Workout ${w.type} · ${formatDate(w.date)}</strong><span class="muted">${new Date(w.completedAt).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</span></div>
+  <div>${w.entries.map(e => `<span class="pill ${e.success ? 'success' : 'fail'}">${LIFTS[e.key].short}: ${e.actual} ${state.settings.units} ${e.success ? '✓' : '×'}${e.deloaded ? ' deload' : ''}</span>`).join(' ')}</div></div>`;
+}
+function chartHTML() { return `<canvas class="chart" id="progressChart" width="700" height="230"></canvas>`; }
+function drawChart() {
+  const canvas = document.getElementById('progressChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const logs = [...state.workouts].sort((a,b)=>a.completedAt.localeCompare(b.completedAt));
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
+  if (!logs.length) { ctx.fillText('Log workouts to see a progress chart.', 20, 40); return; }
+  const series = Object.keys(LIFTS).map(key => ({ key, pts: logs.map((w,i) => { const e = w.entries.find(x=>x.key===key); return e ? {x:i, y:e.actual} : null; }).filter(Boolean) })).filter(s=>s.pts.length);
+  const allY = series.flatMap(s=>s.pts.map(p=>p.y));
+  const minY = Math.max(0, Math.min(...allY) - 10); const maxY = Math.max(...allY) + 10;
+  const pad = {l:38,r:12,t:16,b:28}; const W=canvas.width-pad.l-pad.r, H=canvas.height-pad.t-pad.b;
+  ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth=1;
+  for (let i=0;i<5;i++) { const y=pad.t + H*i/4; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+W,y); ctx.stroke(); }
+  series.forEach((s, si) => {
+    ctx.strokeStyle = ['#f97316','#22c55e','#60a5fa','#e879f9','#facc15'][si % 5]; ctx.lineWidth=3; ctx.beginPath();
+    s.pts.forEach((p, pi) => { const x = pad.l + (logs.length===1 ? W/2 : W*p.x/(logs.length-1)); const y = pad.t + H - H*(p.y-minY)/(maxY-minY || 1); pi ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); ctx.stroke();
+    const last = s.pts[s.pts.length-1]; const lx = pad.l + (logs.length===1 ? W/2 : W*last.x/(logs.length-1)); const ly = pad.t + H - H*(last.y-minY)/(maxY-minY || 1);
+    ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fill(); ctx.fillText(LIFTS[s.key].short, Math.min(lx+6, canvas.width-35), ly-6);
+  });
+  ctx.fillStyle='rgba(255,255,255,.55)'; ctx.fillText(String(maxY), 5, pad.t+5); ctx.fillText(String(minY), 5, pad.t+H);
+}
+function renderSettings() {
+  const root = document.getElementById('view-settings');
+  root.innerHTML = `<div class="card"><h2>Settings</h2><div class="grid" style="margin-top:14px">
+    <div class="grid2"><div><label>Units</label><select onchange="setSetting('units', this.value)"><option ${state.settings.units==='lb'?'selected':''}>lb</option><option ${state.settings.units==='kg'?'selected':''}>kg</option></select></div><div><label>Round deload to nearest</label><input type="number" value="${state.settings.roundTo}" onchange="setNumSetting('roundTo', this.value)"></div></div>
+    <div class="grid2"><div><label>Deload percent</label><input type="number" value="${state.settings.deloadPercent}" onchange="setNumSetting('deloadPercent', this.value)"></div><div><label>Deload after failed sessions</label><input type="number" value="${state.settings.deloadAfterFails}" onchange="setNumSetting('deloadAfterFails', this.value)"></div></div>
+  </div></div>
+  ${cloudSettingsHTML()}
+  <div class="card"><h2>Backup / Restore</h2><p class="sub" style="margin-top:5px">Cloud sync is recommended, but local export is still useful as a backup.</p><div class="actions"><button class="btn primary" onclick="exportData()">Export Backup</button><label class="btn"><input type="file" accept="application/json" style="display:none" onchange="importData(event)">Import Backup</label></div><textarea id="backupBox" placeholder="Backup JSON will appear here after export."></textarea></div>
+  <div class="card danger-zone"><h2>Danger Zone</h2><p class="sub" style="margin-top:5px">Reset deletes workout history and restores default weights.</p><div class="actions"><button class="btn bad" onclick="resetAll()">Reset Everything</button></div></div>`;
+}
+
+function cloudSettingsHTML() {
+  const cfg = cloudConfig();
+  const email = cloud.session?.user?.email || '';
+  return `<div class="card"><h2>Cloud Sync: Supabase</h2><p class="sub" style="margin-top:5px">Stores one encrypted-in-transit JSON copy of your workout data in your own free Supabase project. This phone keeps a local cache for offline use.</p>
+    <div class="grid" style="margin-top:14px">
+      <div><label>Supabase project URL</label><input id="supabaseUrl" value="${escapeAttr(cfg.url || '')}" placeholder="https://your-project.supabase.co"></div>
+      <div><label>Supabase anon public key</label><input id="supabaseAnonKey" value="${escapeAttr(cfg.anonKey || '')}" placeholder="eyJhbGciOi..." autocomplete="off"></div>
+      <div class="actions"><button class="btn primary" onclick="saveCloudSettings()">Save Cloud Settings</button></div>
+      <div class="grid2"><div><label>Email sign-in</label><input id="cloudEmail" type="email" value="${escapeAttr(email)}" placeholder="you@example.com"></div><div><label>Status</label><div class="pill">${cloud.session ? 'Signed in as ' + escapeAttr(email) : (cloud.enabled ? 'Configured, not signed in' : 'Not configured')}</div></div></div>
+      <div class="actions">
+        <button class="btn good" onclick="sendMagicLink()">Email Magic Link</button>
+        <button class="btn" onclick="manualPull()" ${cloud.session ? '' : 'disabled'}>Pull from Cloud</button>
+        <button class="btn" onclick="manualPush()" ${cloud.session ? '' : 'disabled'}>Push to Cloud</button>
+        <button class="btn bad" onclick="signOutCloud()" ${cloud.session ? '' : 'disabled'}>Sign Out</button>
+      </div>
+    </div>
+    <p class="footer-note">Important: the anon key is safe to place in a browser app only when Row Level Security is enabled and the SQL policies in the README are installed.</p>
+  </div>`;
+}
+
+function setNumSetting(k, val) { state.settings[k] = Number(val) || 0; saveState(); }
+function exportData() {
+  const data = JSON.stringify({ exportedAt: new Date().toISOString(), app: 'private-5x5-tracker', state }, null, 2);
+  document.getElementById('backupBox').value = data;
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `private-5x5-backup-${todayISO()}.json`; a.click(); URL.revokeObjectURL(a.href);
+}
+function importData(evt) {
+  const file = evt.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { try { const parsed = JSON.parse(reader.result); state = mergeDefaults(parsed.state || parsed); saveState(); draft = null; alert('Backup imported.'); render(); } catch { alert('That backup file could not be imported.'); } };
+  reader.readAsText(file);
+}
+function resetAll() { if (confirm('Delete all local 5x5 data?')) { localStorage.removeItem(STORE_KEY); state = loadState(); draft = null; render(); } }
+
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => { activeTab = btn.dataset.tab; render(); window.scrollTo(0,0); }));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+render();
+initCloud().catch(err => alert('Cloud setup error: ' + err.message));
+</script>
+</body>
+</html>
