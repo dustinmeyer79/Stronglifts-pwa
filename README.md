@@ -75,3 +75,9 @@ The app still includes Export/Import Backup. Use this occasionally so you have a
 ## Auto-sync behavior
 
 When you are signed in, the app automatically pushes saved data changes to Supabase after a short debounce. This includes setup changes, imports, completed workouts, deleted workout logs, and resets. In-progress set tapping during an unfinished workout is still treated as a temporary draft until you tap **Complete Workout**.
+
+
+## 2026-05 UI update
+
+- Removed the Units tile from the next-workout summary.
+- Last logged now shows the full day and date.

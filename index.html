@@ -67,7 +67,7 @@
     .tabs { position: fixed; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); background: rgba(8,13,26,.92); border-top: 1px solid var(--line); backdrop-filter: blur(14px); z-index: 20; }
     .tab { color: var(--muted); background: transparent; border-radius: 14px; padding: 9px 6px; font-size: 12px; display: grid; gap: 2px; }
     .tab.active { color: var(--text); background: rgba(255,255,255,.08); }
-    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
     .kpi { background: rgba(255,255,255,.055); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
     .kpi strong { display: block; font-size: 20px; }
     .kpi span { color: var(--muted); font-size: 12px; }
@@ -170,6 +170,10 @@ function todayISO(date = new Date()) {
 function formatDate(iso) {
   const [y,m,d] = iso.split('-').map(Number);
   return new Date(y, m-1, d).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+}
+function formatFullDate(iso) {
+  const [y,m,d] = iso.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 }
 function parseISO(iso) {
   const [y,m,d] = iso.split('-').map(Number);
@@ -371,8 +375,7 @@ function renderToday() {
       </div>
       <div class="kpis">
         <div class="kpi"><strong>${state.workouts.length}</strong><span>Workouts</span></div>
-        <div class="kpi"><strong>${recent ? formatDate(recent.date).split(',')[0] : '—'}</strong><span>Last logged</span></div>
-        <div class="kpi"><strong>${state.settings.units}</strong><span>Units</span></div>
+        <div class="kpi"><strong>${recent ? formatFullDate(recent.date) : '—'}</strong><span>Last logged</span></div>
       </div>
     </div>
     <div class="card">
