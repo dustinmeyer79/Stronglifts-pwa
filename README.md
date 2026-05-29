@@ -81,3 +81,7 @@ When you are signed in, the app automatically pushes saved data changes to Supab
 
 - Removed the Units tile from the next-workout summary.
 - Last logged now shows the full day and date.
+
+## In-progress workout caching
+
+The app now saves your current workout draft locally every time you check or uncheck a set, change actual weight, or update notes. If iOS reloads the Home Screen PWA after you lock your phone, your checked sets should reappear when you reopen the app. The draft is cleared when you tap **Complete Workout**, **Reset**, change the workout schedule, import a backup, pull cloud data, or reset the app.

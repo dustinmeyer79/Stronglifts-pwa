@@ -130,6 +130,7 @@
 
 <script>
 const STORE_KEY = 'private-5x5-tracker-v1';
+const DRAFT_KEY = 'private-5x5-workout-draft-v1';
 const CLOUD_CONFIG_KEY = 'private-5x5-supabase-config-v1';
 const CLOUD_TABLE = 'stronglifts_data';
 const LIFTS = {
@@ -195,6 +196,22 @@ function mergeDefaults(saved) {
     lifts: { ...base.lifts, ...(saved.lifts || {}) },
     workouts: Array.isArray(saved.workouts) ? saved.workouts : []
   };
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.date || !parsed.type || !Array.isArray(parsed.entries)) return null;
+    return parsed;
+  } catch { return null; }
+}
+function saveDraft() {
+  if (!draft) return;
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
 }
 function saveState() {
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -265,7 +282,7 @@ async function pullFromCloud(askBeforeOverwrite = true) {
   const localCount = state.workouts?.length || 0;
   const cloudCount = cloudState.workouts?.length || 0;
   const shouldUseCloud = !askBeforeOverwrite || cloudCount >= localCount || confirm(`Cloud has ${cloudCount} workouts. This device has ${localCount}. Load cloud data onto this device?`);
-  if (shouldUseCloud) { state = cloudState; localStorage.setItem(STORE_KEY, JSON.stringify(state)); draft = null; cloud.lastSyncedAt = data.updated_at; render(); }
+  if (shouldUseCloud) { state = cloudState; localStorage.setItem(STORE_KEY, JSON.stringify(state)); draft = null; clearDraft(); cloud.lastSyncedAt = data.updated_at; render(); }
   updateCloudStatus();
 }
 async function sendOtpCode() {
@@ -341,10 +358,16 @@ function completedToday() { const iso = todayISO(); return state.workouts.find(w
 function ensureDraft() {
   const iso = nextScheduledDate(new Date());
   const type = plannedWorkoutType(iso);
+  const saved = loadDraft();
+  if (saved && saved.date === iso && saved.type === type && Array.isArray(saved.entries)) {
+    draft = saved;
+    return;
+  }
   draft = {
     id: uid(), date: iso, type, completedAt: null,
     entries: WORKOUTS[type].map(key => ({ key, name: LIFTS[key].name, target: state.lifts[key].current, sets: Array(LIFTS[key].sets).fill(false), actual: state.lifts[key].current, notes: '' }))
   };
+  saveDraft();
 }
 function render() {
   document.getElementById('todayPill').textContent = formatDate(todayISO());
@@ -409,10 +432,10 @@ function liftHTML(e, idx, locked) {
   </div>`;
 }
 function escapeAttr(str) { return String(str).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'); }
-function toggleSet(i,j) { draft.entries[i].sets[j] = !draft.entries[i].sets[j]; renderToday(); }
-function updateActual(i,val) { draft.entries[i].actual = Number(val) || draft.entries[i].target; }
-function updateNotes(i,val) { draft.entries[i].notes = val; }
-function resetDraft() { ensureDraft(); render(); }
+function toggleSet(i,j) { draft.entries[i].sets[j] = !draft.entries[i].sets[j]; saveDraft(); renderToday(); }
+function updateActual(i,val) { draft.entries[i].actual = Number(val) || draft.entries[i].target; saveDraft(); }
+function updateNotes(i,val) { draft.entries[i].notes = val; saveDraft(); }
+function resetDraft() { draft = null; clearDraft(); ensureDraft(); render(); }
 function roundToNearest(n, step) { return Math.round(n / step) * step; }
 function completeWorkout() {
   const log = structuredClone(draft);
@@ -436,7 +459,7 @@ function completeWorkout() {
     }
   });
   state.workouts.push(log);
-  saveState(); draft = null; render();
+  clearDraft(); saveState(); draft = null; render();
 }
 function deleteWorkout(id) {
   if (!confirm('Delete this workout log? This will not reverse current target weights automatically.')) return;
@@ -458,13 +481,13 @@ function dayButtons() {
   return names.map((n,i) => `<button class="btn small ${state.settings.scheduleDays.includes(i) ? 'good' : ''}" onclick="toggleDay(${i})">${n}</button>`).join('');
 }
 function setLift(k, field, val) { state.lifts[k][field] = Number(val) || 0; saveState(); }
-function setSetting(k, val) { state.settings[k] = val; saveState(); draft = null; render(); }
+function setSetting(k, val) { state.settings[k] = val; clearDraft(); saveState(); draft = null; render(); }
 function toggleDay(i) {
   const days = new Set(state.settings.scheduleDays);
   days.has(i) ? days.delete(i) : days.add(i);
   if (days.size === 0) return alert('Select at least one workout day.');
   state.settings.scheduleDays = [...days].sort((a,b)=>a-b);
-  saveState(); draft = null; render();
+  clearDraft(); saveState(); draft = null; render();
 }
 function renderHistory() {
   const root = document.getElementById('view-history');
@@ -547,12 +570,14 @@ function exportData() {
 function importData(evt) {
   const file = evt.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => { try { const parsed = JSON.parse(reader.result); state = mergeDefaults(parsed.state || parsed); saveState(); draft = null; alert('Backup imported.'); render(); } catch { alert('That backup file could not be imported.'); } };
+  reader.onload = () => { try { const parsed = JSON.parse(reader.result); state = mergeDefaults(parsed.state || parsed); clearDraft(); saveState(); draft = null; alert('Backup imported.'); render(); } catch { alert('That backup file could not be imported.'); } };
   reader.readAsText(file);
 }
-function resetAll() { if (confirm('Delete all local 5x5 data? This will also auto-sync the reset to Supabase if you are signed in.')) { localStorage.removeItem(STORE_KEY); state = loadState(); draft = null; saveState(); render(); } }
+function resetAll() { if (confirm('Delete all local 5x5 data? This will also auto-sync the reset to Supabase if you are signed in.')) { localStorage.removeItem(STORE_KEY); clearDraft(); state = loadState(); draft = null; saveState(); render(); } }
 
 document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => { activeTab = btn.dataset.tab; render(); window.scrollTo(0,0); }));
+window.addEventListener('pagehide', () => saveDraft());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveDraft(); });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 render();
 initCloud().catch(err => alert('Cloud setup error: ' + err.message));
